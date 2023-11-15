@@ -416,7 +416,7 @@ class Sync(gdb.Command):
 
     def ensure_maps_loaded(self):
         if not self.maps:
-            self.maps = DbgHelp.get_maps(self.cfg)
+            self.maps = DbgHelp.get_maps(rs_cfg)
             if not self.maps:
                 rs_log("failed to get proc mappings")
                 return None
@@ -432,7 +432,7 @@ class Sync(gdb.Command):
             return
 
         if not self.pid:
-            self.pid = DbgHelp.get_pid(ctx=self.cfg.ctx)
+            self.pid = DbgHelp.get_pid(ctx=rs_cfg.ctx)
             if self.pid is None:
                 return
 
@@ -522,9 +522,9 @@ class Sync(gdb.Command):
 
         if not self.tunnel:
             if arg == "":
-                arg = self.cfg.host
+                arg = rs_cfg.host
 
-            self.tunnel = Tunnel(arg, self.cfg.port)
+            self.tunnel = Tunnel(arg, rs_cfg.port)
             if not self.tunnel.is_up():
                 rs_log("sync failed")
                 return
@@ -1030,6 +1030,14 @@ class Help(WrappedCommand):
   >$y translate$n <base> <addr> <mod> = rebase an address with respect to local module's base\n"""
               ).substitute(y=CMD_COLOR_ON, n=CMD_COLOR_OFF))
 
+class Reload(WrappedCommand):
+    def __init__(self, sync):
+        super(Reload, self).__init__(sync, True)
+        gdb.Command.__init__(self, "syncreload", gdb.COMMAND_OBSCURE, gdb.COMPLETE_NONE)
+
+    def _invoke(self, arg, from_tty):
+        global rs_cfg
+        rs_cfg = load_configuration()
 
 def load_configuration():
     user_conf = namedtuple('user_conf', 'host port ctx use_tmp_logging_file')
@@ -1067,12 +1075,13 @@ def load_configuration():
 
 
 if __name__ == "__main__":
+    global rs_cfg
     try:
         id(SYNC_PLUGIN)
         rs_log('plugin already loaded')
     except NameError as e:
         rs_cfg = load_configuration()
         rs_commands = [Syncoff, Syncmodauto, Idblist, Idbn, Idb, Modlist, Cmt,
-                       Rcmt, Fcmt, Bc, Translate, Cmd, Rln, Bbt, Bx, Cc, Patch, Help]
+                       Rcmt, Fcmt, Bc, Translate, Cmd, Rln, Bbt, Bx, Cc, Patch, Help, Reload]
 
         SYNC_PLUGIN = Sync(rs_cfg, rs_commands)
